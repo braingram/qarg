@@ -54,6 +54,7 @@ def parse_token(token):
 
     if '(' in token:
         sname, lname = token.split('(')
+        sname = sname[0]
         lname = lname[:-1]
     else:
         sname = token[0]
