@@ -86,4 +86,32 @@ def get(arg_string, args=None, namespace=None, \
         if return_leftover:
             return ns, leftover
         return ns
-    return p.parse_args(args, ns)
+    return p.parse_args(args, namespace)
+
+
+def test():
+    ns = get('f', args=['-f', 'foo'])
+    assert hasattr(ns, 'f')
+    assert type(ns.f) == str
+    assert ns.f == 'foo'
+
+    ns = get('f,b', args=['-f', 'foo', '-b', 'bar'])
+    assert hasattr(ns, 'f')
+    assert hasattr(ns, 'b')
+    assert ns.f == 'foo'
+    assert ns.b == 'bar'
+
+    ns = get('f(foo)', args=['-f', 'foo'])
+    assert hasattr(ns, 'foo')
+    assert type(ns.foo) == str
+    assert ns.foo == 'foo'
+
+    ns = get('f(foo)[int]', args=['-f', '1'])
+    assert type(ns.foo) == int
+    assert ns.foo == 1
+
+    ns = get('f(foo)[int]=1', args=['-f', '2'])
+    assert ns.foo == 2
+
+    ns = get('f(foo)[int]=1', args=[])
+    assert ns.foo == 1
