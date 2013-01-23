@@ -5,7 +5,7 @@
         comma seperated list of args
 
         args:
-            <short name>(<long name>)[<type>]=<default>
+            <short name>(<long name>)[<type>]=<default>@<action>
 
         all but short name are optional
         if long name is missing, short name will be used
@@ -40,17 +40,22 @@ def parse_token(token):
     """
     Return args and kwargs for ArgumentParser.add_argument
     """
+    kwargs = {}
+    if '@' in token:
+        token, action = token.split('@')
+        kwargs['action'] = action
+
     if '=' in token:
         token, default = token.split('=')
-    else:
-        default = None
+        kwargs['default'] = default
 
     if '[' in token:
         token, dtype = token.split('[')
         dtype = dtype[:-1]  # remove ']'
         dtype = lookup_type(dtype)
-    else:
-        dtype = str
+        kwargs['type'] = dtype
+        if 'default' in kwargs:
+            kwargs['default'] = dtype(kwargs['default'])
 
     if '(' in token:
         sname, lname = token.split('(')
@@ -59,11 +64,9 @@ def parse_token(token):
     else:
         sname = token[0]
         lname = token
-    if default is not None:
-        default = dtype(default)
 
     args = ('-%s' % sname, '--%s' % lname)
-    return args, dict(type=dtype, default=default)
+    return args, kwargs
 
 
 def parse(arg_string, description=None):
@@ -116,3 +119,13 @@ def test():
 
     ns = get('f(foo)[int]=1', args=[])
     assert ns.foo == 1
+
+    ns = get('f(foo)@store_true,b(bar)@store_false', \
+            args=[])
+    assert ns.foo == False
+    assert ns.bar == True
+
+    ns = get('f(foo)@store_true,b(bar)@store_false', \
+            args=['-f', '-b'])
+    assert ns.foo == True
+    assert ns.bar == False

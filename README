@@ -6,7 +6,7 @@ A simple concise way of defining arguments for an argparse.ArgumentParser
 
 comma separated argument definitions in the form of...
 
-    <short name>(<long name>)[<type>]=<default>
+    <short name>(<long name>)[<type>]=<default>@<action>
 
 all but short name is optional
 if long name is undefined, long name will equal short name
@@ -17,5 +17,5 @@ short name (i.e. if 'foo' is provided, short name == 'f', long name == 'foo')
 -- Example --
 
 import qarg
-ns = qarg.get('f(foo)[int]=1,r(bar),baz[str]')
+ns = qarg.get('f(foo)[int]=1,r(bar),baz[str],p(pop)@store_true')
 
