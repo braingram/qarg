@@ -5,18 +5,30 @@
         comma seperated list of args
 
         args:
-            <short name>(<long name>)[<type>]=<default>@<action>
+            <sname>(<lname>{<dest>[<type>=<default>@<action>#<nargs>$<const>
 
-        all but short name are optional
-        if long name is missing, short name will be used
-        if long name is missing, and short name has len > 1
-            long name will be short name and short name will be the
-            first character of short name
+        all but sname are optional
+        if lname is missing, sname will be used
+        if lname is missing, and sname has len > 1
+            long name will be sname and sname will be the
+            first character of sname
 
     examples:
         f(foo)[int]=10
         f[int]=10
 
+    add_argument options
+        name or flags (short name & long name)
+        action = '@'
+        nargs = '#'
+        const = '$'
+        default = '='
+        type = '['
+        choices =
+        required = '!'
+        help =
+        metavar =
+        dest = '{'
 """
 
 
@@ -29,6 +41,18 @@ type_lookup = {'int': int, 'str': str, 'bool': bool, 'float': float, \
         'buffer': buffer, 'set': set, 'frozenset': frozenset, \
         'dict': dict, 'memoryview': memoryview}
 
+cmap = { \
+        '$': 'const',
+        '#': 'nargs',
+        '@': 'action',
+        '=': 'default',
+        '{': 'dest',
+        '[': 'type',
+        '(': 'lname',
+        }
+
+endcs = ''.join(cmap.keys())
+
 
 def lookup_type(typestring):
     if typestring in type_lookup:
@@ -36,34 +60,56 @@ def lookup_type(typestring):
     raise TypeError("Unknown type string: %s" % typestring)
 
 
+def extract(token, key):
+    if key not in token:
+        return token, False, None
+    si = token.index(key)
+    ei = None
+    for ei in xrange(si + 1, len(token)):
+        if token[ei] in endcs:
+            break
+        ei += 1  # allows ei to equal the end of the token
+    if ei is None:
+        raise ValueError('Failed to extract %s from %s' % (key, token))
+    return token[:si] + token[ei:], True, token[si + 1:ei]
+
+
 def parse_token(token):
     """
     Return args and kwargs for ArgumentParser.add_argument
     """
     kwargs = {}
-    if '@' in token:
-        token, action = token.split('@')
-        kwargs['action'] = action
 
-    if '=' in token:
-        token, default = token.split('=')
-        kwargs['default'] = default
+    if '!' in token:
+        token = token.replace('!', '')
+        kwargs['required'] = True
 
-    if '[' in token:
-        token, dtype = token.split('[')
-        dtype = dtype[:-1]  # remove ']'
-        dtype = lookup_type(dtype)
-        kwargs['type'] = dtype
+    for (c, key) in cmap.iteritems():
+        token, r, value = extract(token, c)
+        if r:
+            kwargs[key] = value
+
+    # correct nargs
+    if 'nargs' in kwargs:
+        if kwargs['nargs'] not in ('?*+R'):
+            kwargs['nargs'] = int(kwargs['nargs'])
+        elif kwargs['nargs'] == 'R':
+            kwargs['nargs'] = argparse.REMAINDER
+
+    # lookup type
+    if 'type' in kwargs:
+        kwargs['type'] = lookup_type(kwargs['type'])
         if 'default' in kwargs:
-            kwargs['default'] = dtype(kwargs['default'])
+            kwargs['default'] = kwargs['type'](kwargs['default'])
+        if 'const' in kwargs:
+            kwargs['const'] = kwargs['type'](kwargs['const'])
+            if not (('nargs' in kwargs) and (kwargs['nargs'] == '?')):
+                # remove type as it conflicts with const
+                # if nargs != '?'
+                del kwargs['type']
 
-    if '(' in token:
-        sname, lname = token.split('(')
-        sname = sname[0]
-        lname = lname[:-1]
-    else:
-        sname = token[0]
-        lname = token
+    lname = kwargs.pop('lname', token)
+    sname = token[0]
 
     args = ('-%s' % sname, '--%s' % lname)
     return args, kwargs
@@ -105,27 +151,29 @@ def test():
     assert ns.f == 'foo'
     assert ns.b == 'bar'
 
-    ns = get('f(foo)', args=['-f', 'foo'])
+    ns = get('f(foo', args=['-f', 'foo'])
     assert hasattr(ns, 'foo')
     assert type(ns.foo) == str
     assert ns.foo == 'foo'
 
-    ns = get('f(foo)[int]', args=['-f', '1'])
+    ns = get('f(foo[int', args=['-f', '1'])
     assert type(ns.foo) == int
     assert ns.foo == 1
 
-    ns = get('f(foo)[int]=1', args=['-f', '2'])
+    ns = get('f(foo[int=1', args=['-f', '2'])
     assert ns.foo == 2
 
-    ns = get('f(foo)[int]=1', args=[])
+    ns = get('f(foo[int=1', args=[])
     assert ns.foo == 1
 
-    ns = get('f(foo)@store_true,b(bar)@store_false', \
+    ns = get('f(foo@store_true,b(bar@store_false', \
             args=[])
     assert ns.foo == False
     assert ns.bar == True
 
-    ns = get('f(foo)@store_true,b(bar)@store_false', \
+    ns = get('f(foo@store_true,b(bar@store_false', \
             args=['-f', '-b'])
     assert ns.foo == True
     assert ns.bar == False
+
+    # TODO add more tests
