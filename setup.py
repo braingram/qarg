@@ -223,7 +223,7 @@ if __name__ == '__main__':
     else:
         setuptools.setup(
             name=package_name,
-            version='dev',
+            version='0.2',
             packages=packages,
             scripts=scripts,
 
