@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 
+
+import simple
+
 try:
     from qargparse import get, parse
 except ImportError as E:
@@ -7,4 +10,4 @@ except ImportError as E:
     # but... just reraise now
     raise E
 
-__all__ = ['get', 'parse']
+__all__ = ['simple', 'get', 'parse']
